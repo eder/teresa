@@ -3,7 +3,9 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -556,11 +558,38 @@ func appSecretSet(cmd *cobra.Command, args []string) {
 		client.PrintErrorAndExit("error reading config file: %v", err)
 	}
 
-	req, err := prepareEnvAndSecretSet("Secrets", currentClusterName, cmd, args)
+	filename, err := cmd.Flags().GetString("filename")
 	if err != nil {
-		client.PrintErrorAndExit("%s", err)
-	} else if req == nil {
-		return
+		client.PrintErrorAndExit("Invalid filename parameter")
+	}
+
+	var req *appb.SetSecretRequest
+	if filename != "" {
+		content, err := ioutil.ReadFile(filename)
+		if err != nil {
+			client.PrintErrorAndExit("error processing file %s: %v", filename, err)
+		}
+		appName, err := cmd.Flags().GetString("app")
+		if err != nil || appName == "" {
+			client.PrintErrorAndExit("Invalid app parameter")
+		}
+		_, filename := filepath.Split(filename)
+		req = &appb.SetSecretRequest{
+			Name: appName,
+			SecretFile: &appb.SetSecretRequest_SecretFile{
+				Key:     filename,
+				Content: content,
+			},
+		}
+	} else {
+		evs, err := prepareEnvAndSecretSet("Secrets", currentClusterName, cmd, args)
+		if err != nil {
+			client.PrintErrorAndExit("%s", err)
+		} else if evs == nil {
+			cmd.Usage()
+			return
+		}
+		req = &appb.SetSecretRequest{Name: evs.Name, SecretEnvs: evs.EnvVars}
 	}
 
 	conn, err := connection.New(cfgFile, currentClusterName)
@@ -596,6 +625,7 @@ You can also provide more than one env var at a time:
 	Run: appSecretUnset,
 }
 
+// FIXME: unset file secrets
 func appSecretUnset(cmd *cobra.Command, args []string) {
 	currentClusterName, err := getClusterName()
 	if err != nil {
@@ -845,6 +875,7 @@ func init() {
 
 	appSecretSetCmd.Flags().String("app", "", "app name")
 	appSecretSetCmd.Flags().Bool("no-input", false, "set env vars without warning")
+	appSecretSetCmd.Flags().StringP("filename", "f", "", "Filename with secret content")
 
 	appSecretUnSetCmd.Flags().String("app", "", "app name")
 	appSecretUnSetCmd.Flags().Bool("no-input", false, "unset env vars without warning")
