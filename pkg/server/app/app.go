@@ -28,6 +28,7 @@ type Operations interface {
 	UnsetEnv(user *database.User, appName string, evs []string) error
 	SetSecret(user *database.User, appName string, secrets []*EnvVar) error
 	UnsetSecret(user *database.User, appName string, secrets []string) error
+	SetSecretFile(user *database.User, appName, name string, content []byte) error
 	List(user *database.User) ([]*AppListItem, error)
 	ListByTeam(teamName string) ([]string, error)
 	SetAutoscale(user *database.User, appName string, as *Autoscale) error
@@ -396,6 +397,42 @@ func (ops *AppOperations) addresses(app *App) ([]*Address, error) {
 	}
 	return nil, nil
 }
+
+func (ops *AppOperations) SetSecretFile(user *database.User, appName, name string, content []byte) error {
+	app, err := ops.CheckPermAndGet(user, appName)
+	if err != nil {
+		return err
+	}
+
+	s, err := ops.kops.GetSecret(appName, TeresaAppSecrets)
+	if err != nil {
+		if !ops.kops.IsNotFound(err) {
+			return teresa_errors.NewInternalServerError(err)
+		}
+	}
+	if s == nil {
+		s = make(map[string][]byte)
+	}
+	s[name] = content
+
+	if err := ops.kops.CreateOrUpdateSecret(appName, TeresaAppSecrets, s); err != nil {
+		if ops.kops.IsInvalid(err) {
+			return ErrInvalidSecretName
+		}
+		return teresa_errors.NewInternalServerError(err)
+	}
+
+	// FIXME: Update current deploy/cronjob
+
+	setSecretFileOnApp(app, name)
+
+	if err := ops.SaveApp(app, user.Email); err != nil {
+		return teresa_errors.NewInternalServerError(err)
+	}
+
+	return nil
+}
+
 func (ops *AppOperations) SetSecret(user *database.User, appName string, secrets []*EnvVar) error {
 	names := make([]string, len(secrets))
 	for i := range secrets {
@@ -454,6 +491,7 @@ func (ops *AppOperations) SetSecret(user *database.User, appName string, secrets
 	return nil
 }
 
+//FIXME: file secrets
 func (ops *AppOperations) UnsetSecret(user *database.User, appName string, secrets []string) error {
 	if err := checkForProtectedEnvVars(secrets); err != nil {
 		return err

@@ -217,7 +217,7 @@ func TestSetSecretSuccess(t *testing.T) {
 	user := &database.User{Email: "gopher@luizalabs.com"}
 	ctx := context.WithValue(context.Background(), "user", user)
 
-	if _, err := s.SetSecret(ctx, &appb.SetEnvRequest{Name: name}); err != nil {
+	if _, err := s.SetSecret(ctx, &appb.SetSecretRequest{Name: name}); err != nil {
 		t.Error("Got error on set env: ", err)
 	}
 }
@@ -227,7 +227,7 @@ func TestSetSecretAppNotFound(t *testing.T) {
 	user := &database.User{Email: "gopher@luizalabs.com"}
 	ctx := context.WithValue(context.Background(), "user", user)
 
-	if _, err := s.SetSecret(ctx, &appb.SetEnvRequest{Name: "teresa"}); err != ErrNotFound {
+	if _, err := s.SetSecret(ctx, &appb.SetSecretRequest{Name: "teresa"}); err != ErrNotFound {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
@@ -240,7 +240,7 @@ func TestSetSecretPermissionDenied(t *testing.T) {
 	user := &database.User{Email: "bad-user@luizalabs.com"}
 	ctx := context.WithValue(context.Background(), "user", user)
 
-	if _, err := s.SetSecret(ctx, &appb.SetEnvRequest{Name: name}); err != auth.ErrPermissionDenied {
+	if _, err := s.SetSecret(ctx, &appb.SetSecretRequest{Name: name}); err != auth.ErrPermissionDenied {
 		t.Errorf("expected ErrPermissionDenied, got %v", err)
 	}
 }

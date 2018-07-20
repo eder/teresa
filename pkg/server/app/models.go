@@ -39,6 +39,7 @@ type App struct {
 	EnvVars     []*EnvVar  `json:"envVars"`
 	Internal    bool       `json:"internal"`
 	Secrets     []string   `json:"secrets"`
+	SecretFiles []string   `json:"secret_files"`
 	Protocol    string     `json:"protocol"`
 }
 
@@ -222,13 +223,10 @@ func newInfoResponse(info *Info) *appb.InfoResponse {
 	}
 }
 
-func newEnvVars(req *appb.SetEnvRequest) []*EnvVar {
-	tmp := []*EnvVar{}
-	for _, ev := range req.EnvVars {
-		if ev == nil {
-			continue
-		}
-		tmp = append(tmp, &EnvVar{Key: ev.Key, Value: ev.Value})
+func newEnvVars(evs []*appb.SetEnvRequest_EnvVar) []*EnvVar {
+	tmp := make([]*EnvVar, len(evs))
+	for i, ev := range evs {
+		tmp[i] = &EnvVar{Key: ev.Key, Value: ev.Value}
 	}
 	return tmp
 }
@@ -287,6 +285,15 @@ func unsetSecretsOnApp(app *App, secrets []string) {
 			}
 		}
 	}
+}
+
+func setSecretFileOnApp(app *App, name string) {
+	for _, s := range app.SecretFiles {
+		if s == name {
+			return
+		}
+	}
+	app.SecretFiles = append(app.SecretFiles, name)
 }
 
 func newListResponse(items []*AppListItem) *appb.ListResponse {
