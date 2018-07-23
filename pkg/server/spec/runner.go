@@ -7,6 +7,10 @@ import (
 	"github.com/luizalabs/teresa/pkg/server/storage"
 )
 
+const (
+	AppSecretName = "secrets"
+)
+
 type RunnerPodBuilder struct {
 	name       string
 	image      string
@@ -18,6 +22,7 @@ type RunnerPodBuilder struct {
 	fs         storage.Storage
 	cl         *ContainerLimits
 	labels     Labels
+	csp        *CloudSQLProxy
 }
 
 func (b *RunnerPodBuilder) newAppRunnerContainer() *Container {
@@ -61,6 +66,11 @@ func (b *RunnerPodBuilder) newAppRunnerPod(appContainer *Container) *Pod {
 		nCm := MountConfigMapInSideCar(nginxVolName, nginxConfTmplDir, b.app.Name)
 
 		builder = builder.WithSideCar(nc, nVol, nCm, SwitchPortWithAppContainer)
+	}
+
+	if b.csp != nil {
+		cn := NewCloudSQLProxyContainer(b.csp)
+		builder = builder.WithSideCar(cn)
 	}
 
 	return builder.Build()
@@ -108,6 +118,11 @@ func (b *RunnerPodBuilder) WithLabels(lb Labels) *RunnerPodBuilder {
 
 func (b *RunnerPodBuilder) Build() *Pod {
 	return b.newAppRunnerPod(b.newAppRunnerContainer())
+}
+
+func (b *RunnerPodBuilder) WithCloudSQLProxySideCar(csp *CloudSQLProxy) *RunnerPodBuilder {
+	b.csp = csp
+	return b
 }
 
 func NewRunnerPodBuilder(name, image, initImage string) *RunnerPodBuilder {
