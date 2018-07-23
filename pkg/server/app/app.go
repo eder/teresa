@@ -71,6 +71,7 @@ type K8sOperations interface {
 	DeletePod(namespace, podName string) error
 	HasIngress(namespace, name string) (bool, error)
 	IngressEnabled() bool
+	DeleteDeploySecrets(namespace, deploy string, envVars, volKeys []string) error
 }
 
 type AppOperations struct {
@@ -491,15 +492,33 @@ func (ops *AppOperations) SetSecret(user *database.User, appName string, secrets
 	return nil
 }
 
-//FIXME: file secrets
 func (ops *AppOperations) UnsetSecret(user *database.User, appName string, secrets []string) error {
-	if err := checkForProtectedEnvVars(secrets); err != nil {
-		return err
-	}
-
 	app, err := ops.CheckPermAndGet(user, appName)
 	if err != nil {
 		return err
+	}
+	envSecrets, fileSecrets := make([]string, 0), make([]string, 0)
+
+Loop:
+	for _, s := range secrets {
+		for _, ev := range app.Secrets {
+			if ev == s {
+				envSecrets = append(envSecrets, ev)
+				continue Loop
+			}
+		}
+		for _, sf := range app.SecretFiles {
+			if sf == s {
+				fileSecrets = append(fileSecrets, sf)
+				break
+			}
+		}
+	}
+
+	if len(envSecrets) > 0 {
+		if err := checkForProtectedEnvVars(envSecrets); err != nil {
+			return err
+		}
 	}
 
 	s, err := ops.kops.GetSecret(appName, TeresaAppSecrets)
@@ -523,10 +542,11 @@ func (ops *AppOperations) UnsetSecret(user *database.User, appName string, secre
 		return teresa_errors.NewInternalServerError(err)
 	}
 
+	//FIXME: resolver o cronjob
 	if IsCronJob(app.ProcessType) {
 		err = ops.kops.DeleteCronJobEnvVars(appName, appName, secrets)
 	} else {
-		err = ops.kops.DeleteDeployEnvVars(appName, appName, secrets)
+		err = ops.kops.DeleteDeploySecrets(appName, appName, envSecrets, fileSecrets)
 	}
 
 	if err != nil {
@@ -535,7 +555,12 @@ func (ops *AppOperations) UnsetSecret(user *database.User, appName string, secre
 		}
 	}
 
-	unsetSecretsOnApp(app, secrets)
+	if len(envSecrets) > 0 {
+		unsetSecretsOnApp(app, envSecrets)
+	}
+	if len(fileSecrets) > 0 {
+		unsetSecretFilesOnApp(app, fileSecrets)
+	}
 
 	if err := ops.SaveApp(app, user.Email); err != nil {
 		return teresa_errors.NewInternalServerError(err)

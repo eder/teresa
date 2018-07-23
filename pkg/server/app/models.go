@@ -296,6 +296,17 @@ func setSecretFileOnApp(app *App, name string) {
 	app.SecretFiles = append(app.SecretFiles, name)
 }
 
+func unsetSecretFilesOnApp(app *App, secrets []string) {
+	for _, secret := range secrets {
+		for i := range app.SecretFiles {
+			if app.SecretFiles[i] == secret {
+				app.SecretFiles = append(app.SecretFiles[:i], app.SecretFiles[i+1:]...)
+				break
+			}
+		}
+	}
+}
+
 func newListResponse(items []*AppListItem) *appb.ListResponse {
 	if items == nil {
 		return nil
