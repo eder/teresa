@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	appSecretName = "secrets"
+	AppSecretName = "secrets"
 	appSecretPath = "/teresa/secrets"
 )
 
@@ -56,7 +56,7 @@ func (b *RunnerPodBuilder) newAppRunnerPod(appContainer *Container) *Pod {
 	shareVolOpt := ShareVolumeBetweenAppAndInitContainer(slugVolumeName, slugVolumeMountPath)
 
 	msc := MountSecretListInAppContainer(
-		appSecretName,
+		AppSecretName,
 		appSecretPath,
 		app.TeresaAppSecrets,
 		b.app.SecretFiles,

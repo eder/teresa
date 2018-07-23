@@ -586,7 +586,6 @@ func appSecretSet(cmd *cobra.Command, args []string) {
 		if err != nil {
 			client.PrintErrorAndExit("%s", err)
 		} else if evs == nil {
-			cmd.Usage()
 			return
 		}
 		req = &appb.SetSecretRequest{Name: evs.Name, SecretEnvs: evs.EnvVars}
