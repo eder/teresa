@@ -1200,6 +1200,106 @@ func (c *Client) SetLoadBalancerSourceRanges(namespace, svcName string, sourceRa
 	return c.patchService(namespace, svcName, []byte(data))
 }
 
+func (c *Client) DeleteDeploySecrets(namespace, deploy string, envVars, volKeys []string) error {
+	kc, err := c.buildClient()
+	if err != nil {
+		return err
+	}
+
+	d, err := kc.AppsV1beta2().
+		Deployments(namespace).
+		Get(deploy, metav1.GetOptions{})
+
+	if len(volKeys) > 0 {
+		d = removeVolumesWithSecretsFromDeploy(d, volKeys)
+	}
+	if len(envVars) > 0 {
+		d = removeEnvVarsWithSecretsFromDeploy(d, envVars)
+	}
+
+	d.Annotations["kubernetes.io/change-cause"] = "remove secret volume"
+	_, err = kc.AppsV1beta2().
+		Deployments(namespace).
+		Update(d)
+
+	return err
+}
+
+func removeEnvVarsWithSecretsFromDeploy(d *v1beta2.Deployment, envVars []string) *v1beta2.Deployment {
+	var cnIdx int
+	for i, cn := range d.Spec.Template.Spec.Containers {
+		if cn.Name == d.Name {
+			cnIdx = i
+			break
+		}
+	}
+	d.Spec.Template.Spec.Containers[cnIdx].Env = removeEnvVars(
+		d.Spec.Template.Spec.Containers[cnIdx].Env,
+		envVars,
+	)
+	return d
+}
+
+func removeEnvVars(evs []k8sv1.EnvVar, toRemove []string) []k8sv1.EnvVar {
+	for _, k := range toRemove {
+		for i, ev := range evs {
+			if ev.Name == k {
+				evs = append(evs[:i], evs[i+1:]...)
+				break
+			}
+		}
+	}
+	return evs
+}
+
+func removeVolumesWithSecretsFromDeploy(d *v1beta2.Deployment, keys []string) *v1beta2.Deployment {
+	for i, vol := range d.Spec.Template.Spec.Volumes {
+		if vol.Name != spec.AppSecretName {
+			continue
+		}
+		cleanKeys := removeVolumeSecretsItems(vol.Secret.Items, keys)
+		if len(cleanKeys) > 0 {
+			d.Spec.Template.Spec.Volumes[i].Secret.Items = cleanKeys
+		} else {
+			d.Spec.Template.Spec.Volumes = append(
+				d.Spec.Template.Spec.Volumes[:i],
+				d.Spec.Template.Spec.Volumes[i+1:]...,
+			)
+			for j, cn := range d.Spec.Template.Spec.Containers {
+				if cn.Name != d.Name { //app container name is the same of deploy name
+					continue
+				}
+				cleanVolMounts := removeVolumeMounts(cn.VolumeMounts, spec.AppSecretName)
+				d.Spec.Template.Spec.Containers[j].VolumeMounts = cleanVolMounts
+				break
+			}
+		}
+		break
+	}
+	return d
+}
+
+func removeVolumeMounts(items []k8sv1.VolumeMount, volName string) []k8sv1.VolumeMount {
+	for i, item := range items {
+		if item.Name == volName {
+			return append(items[:i], items[i+1:]...)
+		}
+	}
+	return items
+}
+
+func removeVolumeSecretsItems(items []k8sv1.KeyToPath, toRemove []string) []k8sv1.KeyToPath {
+	for _, k := range toRemove {
+		for i, keyPath := range items {
+			if keyPath.Key == k {
+				items = append(items[:i], items[i+1:]...)
+				break
+			}
+		}
+	}
+	return items
+}
+
 func prepareServiceAnnotations(tmpl string, annotations map[string]string) ([]byte, error) {
 	b, err := json.Marshal(annotations)
 	if err != nil {
