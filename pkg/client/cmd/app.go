@@ -372,6 +372,44 @@ func appInfo(cmd *cobra.Command, args []string) {
 	}
 }
 
+func prepareEnvSecretFileSet(filename, currentClusterName string, cmd *cobra.Command) (*appb.SetSecretRequest, error) {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("error processing file %s: %v", filename, err)
+	}
+	appName, err := cmd.Flags().GetString("app")
+	if err != nil || appName == "" {
+		return nil, fmt.Errorf("Invalid app parameter")
+	}
+	_, filename = filepath.Split(filename)
+
+	fmt.Printf(
+		"Setting Secret file %s and %s %s on %s...\n",
+		color.CyanString(filename),
+		color.YellowString("restarting"),
+		color.CyanString(`"%s"`, appName),
+		color.YellowString(`"%s"`, currentClusterName),
+	)
+	noinput, err := cmd.Flags().GetBool("no-input")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid no-input parameter")
+	}
+	if !noinput {
+		s, _ := client.GetInput("Are you sure? (yes/NO)? ")
+		if s != "yes" {
+			return nil, nil
+		}
+	}
+	req := &appb.SetSecretRequest{
+		Name: appName,
+		SecretFile: &appb.SetSecretRequest_SecretFile{
+			Key:     filename,
+			Content: content,
+		},
+	}
+	return req, nil
+}
+
 func prepareEnvAndSecretSet(label, currentClusterName string, cmd *cobra.Command, args []string) (*appb.SetEnvRequest, error) {
 	if len(args) == 0 {
 		cmd.Usage()
@@ -565,21 +603,11 @@ func appSecretSet(cmd *cobra.Command, args []string) {
 
 	var req *appb.SetSecretRequest
 	if filename != "" {
-		content, err := ioutil.ReadFile(filename)
+		req, err = prepareEnvSecretFileSet(filename, currentClusterName, cmd)
 		if err != nil {
-			client.PrintErrorAndExit("error processing file %s: %v", filename, err)
-		}
-		appName, err := cmd.Flags().GetString("app")
-		if err != nil || appName == "" {
-			client.PrintErrorAndExit("Invalid app parameter")
-		}
-		_, filename := filepath.Split(filename)
-		req = &appb.SetSecretRequest{
-			Name: appName,
-			SecretFile: &appb.SetSecretRequest_SecretFile{
-				Key:     filename,
-				Content: content,
-			},
+			client.PrintErrorAndExit("%s", err)
+		} else if req == nil {
+			return
 		}
 	} else {
 		evs, err := prepareEnvAndSecretSet("Secrets", currentClusterName, cmd, args)
@@ -624,7 +652,6 @@ You can also provide more than one env var at a time:
 	Run: appSecretUnset,
 }
 
-// FIXME: unset file secrets
 func appSecretUnset(cmd *cobra.Command, args []string) {
 	currentClusterName, err := getClusterName()
 	if err != nil {
