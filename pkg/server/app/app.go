@@ -72,6 +72,7 @@ type K8sOperations interface {
 	HasIngress(namespace, name string) (bool, error)
 	IngressEnabled() bool
 	DeleteDeploySecrets(namespace, deploy string, envVars, volKeys []string) error
+	DeleteCronJobSecrets(namespace, cronjob string, envVars, volKeys []string) error
 }
 
 type AppOperations struct {
@@ -542,9 +543,8 @@ Loop:
 		return teresa_errors.NewInternalServerError(err)
 	}
 
-	//FIXME: resolver o cronjob
 	if IsCronJob(app.ProcessType) {
-		err = ops.kops.DeleteCronJobEnvVars(appName, appName, secrets)
+		err = ops.kops.DeleteCronJobSecrets(appName, appName, envSecrets, fileSecrets)
 	} else {
 		err = ops.kops.DeleteDeploySecrets(appName, appName, envSecrets, fileSecrets)
 	}
