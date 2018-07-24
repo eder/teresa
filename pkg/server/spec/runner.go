@@ -7,10 +7,7 @@ import (
 	"github.com/luizalabs/teresa/pkg/server/storage"
 )
 
-const (
-	AppSecretName = "secrets"
-	appSecretPath = "/teresa/secrets"
-)
+const AppSecretName = "secrets"
 
 type RunnerPodBuilder struct {
 	name       string
@@ -57,7 +54,7 @@ func (b *RunnerPodBuilder) newAppRunnerPod(appContainer *Container) *Pod {
 
 	msc := MountSecretListInAppContainer(
 		AppSecretName,
-		appSecretPath,
+		app.SecretPath,
 		app.TeresaAppSecrets,
 		b.app.SecretFiles,
 	)

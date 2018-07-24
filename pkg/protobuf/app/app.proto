@@ -120,6 +120,7 @@ message InfoResponse {
     }
     Limits limits = 6;
     string protocol = 7;
+    repeated string volumes = 8;
 }
 
 message SetEnvRequest {

@@ -17,6 +17,8 @@ import (
 	"github.com/luizalabs/teresa/pkg/server/teresa_errors"
 )
 
+const SecretPath = "/teresa/secrets"
+
 type Operations interface {
 	Create(user *database.User, app *App) error
 	Logs(user *database.User, appName string, opts *LogOptions) (io.ReadCloser, error)
@@ -245,6 +247,10 @@ func (ops *AppOperations) Info(user *database.User, appName string) (*Info, erro
 			Key: s, Value: "*****",
 		}
 	}
+	vols := make([]string, len(appMeta.SecretFiles))
+	for i := range appMeta.SecretFiles {
+		vols[i] = fmt.Sprintf("%s/%s", SecretPath, appMeta.SecretFiles[i])
+	}
 
 	info := &Info{
 		Team:      teamName,
@@ -254,6 +260,7 @@ func (ops *AppOperations) Info(user *database.User, appName string) (*Info, erro
 		Limits:    lim,
 		EnvVars:   envVars,
 		Protocol:  appMeta.Protocol,
+		Volumes:   vols,
 	}
 	return info, nil
 }

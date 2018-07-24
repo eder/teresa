@@ -332,6 +332,12 @@ func appInfo(cmd *cobra.Command, args []string) {
 			fmt.Printf("  %s=%s\n", ev.Key, ev.Value)
 		}
 	}
+	if len(info.Volumes) > 0 {
+		fmt.Println(bold("volumes:"))
+		for _, vol := range info.Volumes {
+			fmt.Println("  ", vol)
+		}
+	}
 	if info.Status != nil {
 		pods := make([]*appb.InfoResponse_Status_Pod, 0)
 		for _, pod := range info.Status.Pods {
