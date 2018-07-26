@@ -5,6 +5,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [NEXT_RELEASE]
 ### Added
 - [server] Cluster autocaler support
+- [server] Support por .yml extension
 
 ### Changed
 - [server] Remove external uuid package dependency to generate deploy uid's
