@@ -1201,6 +1201,97 @@ func (c *Client) SetLoadBalancerSourceRanges(namespace, svcName string, sourceRa
 	return c.patchService(namespace, svcName, []byte(data))
 }
 
+func (c *Client) AddSecretFileOnDeploy(namespace, deploy, fileName string) error {
+	kc, err := c.buildClient()
+	if err != nil {
+		return err
+	}
+
+	d, err := kc.AppsV1beta2().
+		Deployments(namespace).
+		Get(deploy, metav1.GetOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	d.Spec.Template.Spec.Volumes = addVolumeWithKey(
+		d.Spec.Template.Spec.Volumes,
+		fileName,
+	)
+
+	for i, cn := range d.Spec.Template.Spec.Containers {
+		if cn.Name != deploy { //app container name is the same of deploy name
+			continue
+		}
+		d.Spec.Template.Spec.Containers[i].VolumeMounts = addVolumeMountToSecrets(
+			d.Spec.Template.Spec.Containers[i].VolumeMounts,
+		)
+		break
+	}
+
+	d.Annotations["kubernetes.io/change-cause"] = "add secret volume"
+	_, err = kc.AppsV1beta2().
+		Deployments(namespace).
+		Update(d)
+
+	return err
+}
+
+func addVolumeMountToSecrets(vols []k8sv1.VolumeMount) []k8sv1.VolumeMount {
+	found := false
+	for _, vol := range vols {
+		if vol.Name == spec.AppSecretName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		vols = append(
+			vols,
+			k8sv1.VolumeMount{
+				Name:      spec.AppSecretName,
+				ReadOnly:  false,
+				MountPath: app.SecretPath,
+			},
+		)
+
+	}
+	return vols
+}
+
+func addVolumeWithKey(vols []k8sv1.Volume, fileName string) []k8sv1.Volume {
+	found := false
+	for i := range vols {
+		if vols[i].Name != spec.AppSecretName {
+			continue
+		}
+		vols[i].Secret.Items = append(
+			vols[i].Secret.Items,
+			k8sv1.KeyToPath{Key: fileName, Path: fileName},
+		)
+		found = true
+		break
+	}
+	if !found {
+		vols = append(
+			vols,
+			k8sv1.Volume{
+				Name: spec.AppSecretName,
+				VolumeSource: k8sv1.VolumeSource{
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: app.TeresaAppSecrets,
+						Items: []k8sv1.KeyToPath{
+							k8sv1.KeyToPath{Key: fileName, Path: fileName},
+						},
+					},
+				},
+			},
+		)
+	}
+	return vols
+}
+
 func (c *Client) DeleteDeploySecrets(namespace, deploy string, envVars, volKeys []string) error {
 	kc, err := c.buildClient()
 	if err != nil {
@@ -1228,6 +1319,44 @@ func (c *Client) DeleteDeploySecrets(namespace, deploy string, envVars, volKeys 
 		Update(d)
 
 	return err
+}
+
+func (c *Client) AddSecretFileOnCronJob(namespace, cronjob, fileName string) error {
+	kc, err := c.buildClient()
+	if err != nil {
+		return err
+	}
+
+	cj, err := kc.BatchV1beta1().
+		CronJobs(namespace).
+		Get(cronjob, metav1.GetOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	cj.Spec.JobTemplate.Spec.Template.Spec.Volumes = addVolumeWithKey(
+		cj.Spec.JobTemplate.Spec.Template.Spec.Volumes,
+		fileName,
+	)
+
+	for i, cn := range cj.Spec.JobTemplate.Spec.Template.Spec.Containers {
+		if cn.Name != cronjob { //app container name is the same of cronjob name
+			continue
+		}
+		cj.Spec.JobTemplate.Spec.Template.Spec.Containers[i].VolumeMounts = addVolumeMountToSecrets(
+			cj.Spec.JobTemplate.Spec.Template.Spec.Containers[i].VolumeMounts,
+		)
+		break
+	}
+
+	cj.Annotations["kubernetes.io/change-cause"] = "add secret volume"
+	_, err = kc.BatchV1beta1().
+		CronJobs(namespace).
+		Update(cj)
+
+	return err
+
 }
 
 func (c *Client) DeleteCronJobSecrets(namespace, cronjob string, envVars, volKeys []string) error {
