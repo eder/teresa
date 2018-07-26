@@ -1309,20 +1309,21 @@ func removeVolumesWithSecretsFromDeploy(d *v1beta2.Deployment, keys []string) *v
 		cleanKeys := removeVolumeSecretsItems(vol.Secret.Items, keys)
 		if len(cleanKeys) > 0 {
 			d.Spec.Template.Spec.Volumes[i].Secret.Items = cleanKeys
-		} else {
-			d.Spec.Template.Spec.Volumes = append(
-				d.Spec.Template.Spec.Volumes[:i],
-				d.Spec.Template.Spec.Volumes[i+1:]...,
-			)
-			for j, cn := range d.Spec.Template.Spec.Containers {
-				if cn.Name != d.Name { //app container name is the same of deploy name
-					continue
-				}
-				cleanVolMounts := removeVolumeMounts(cn.VolumeMounts, spec.AppSecretName)
-				d.Spec.Template.Spec.Containers[j].VolumeMounts = cleanVolMounts
-				break
-			}
+			return d
 		}
+		d.Spec.Template.Spec.Volumes = append(
+			d.Spec.Template.Spec.Volumes[:i],
+			d.Spec.Template.Spec.Volumes[i+1:]...,
+		)
+		break
+	}
+
+	for i, cn := range d.Spec.Template.Spec.Containers {
+		if cn.Name != d.Name { //app container name is the same of deploy name
+			continue
+		}
+		cleanVolMounts := removeVolumeMounts(cn.VolumeMounts, spec.AppSecretName)
+		d.Spec.Template.Spec.Containers[i].VolumeMounts = cleanVolMounts
 		break
 	}
 	return d
@@ -1336,20 +1337,21 @@ func removeVolumesWithSecretsFromCronJob(cj *v1beta1.CronJob, keys []string) *v1
 		cleanKeys := removeVolumeSecretsItems(vol.Secret.Items, keys)
 		if len(cleanKeys) > 0 {
 			cj.Spec.JobTemplate.Spec.Template.Spec.Volumes[i].Secret.Items = cleanKeys
-		} else {
-			cj.Spec.JobTemplate.Spec.Template.Spec.Volumes = append(
-				cj.Spec.JobTemplate.Spec.Template.Spec.Volumes[:i],
-				cj.Spec.JobTemplate.Spec.Template.Spec.Volumes[i+1:]...,
-			)
-			for j, cn := range cj.Spec.JobTemplate.Spec.Template.Spec.Containers {
-				if cn.Name != cj.Name { //app container name is the same of deploy name
-					continue
-				}
-				cleanVolMounts := removeVolumeMounts(cn.VolumeMounts, spec.AppSecretName)
-				cj.Spec.JobTemplate.Spec.Template.Spec.Containers[j].VolumeMounts = cleanVolMounts
-				break
-			}
+			return cj
 		}
+		cj.Spec.JobTemplate.Spec.Template.Spec.Volumes = append(
+			cj.Spec.JobTemplate.Spec.Template.Spec.Volumes[:i],
+			cj.Spec.JobTemplate.Spec.Template.Spec.Volumes[i+1:]...,
+		)
+		break
+	}
+
+	for i, cn := range cj.Spec.JobTemplate.Spec.Template.Spec.Containers {
+		if cn.Name != cj.Name { //app container name is the same of deploy name
+			continue
+		}
+		cleanVolMounts := removeVolumeMounts(cn.VolumeMounts, spec.AppSecretName)
+		cj.Spec.JobTemplate.Spec.Template.Spec.Containers[i].VolumeMounts = cleanVolMounts
 		break
 	}
 	return cj
