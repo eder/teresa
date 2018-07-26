@@ -378,7 +378,7 @@ func appInfo(cmd *cobra.Command, args []string) {
 	}
 }
 
-func prepareEnvSecretFileSet(filename, currentClusterName string, cmd *cobra.Command) (*appb.SetSecretRequest, error) {
+func prepareSecretFileSet(filename, currentClusterName string, cmd *cobra.Command) (*appb.SetSecretRequest, error) {
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("error processing file %s: %v", filename, err)
@@ -609,7 +609,7 @@ func appSecretSet(cmd *cobra.Command, args []string) {
 
 	var req *appb.SetSecretRequest
 	if filename != "" {
-		req, err = prepareEnvSecretFileSet(filename, currentClusterName, cmd)
+		req, err = prepareSecretFileSet(filename, currentClusterName, cmd)
 		if err != nil {
 			client.PrintErrorAndExit("%s", err)
 		} else if req == nil {

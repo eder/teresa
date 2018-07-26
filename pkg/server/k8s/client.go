@@ -1201,7 +1201,7 @@ func (c *Client) SetLoadBalancerSourceRanges(namespace, svcName string, sourceRa
 	return c.patchService(namespace, svcName, []byte(data))
 }
 
-func (c *Client) AddSecretFileOnDeploy(namespace, deploy, fileName string) error {
+func (c *Client) CreateOrUpdateDeploySecretFile(namespace, deploy, fileName string) error {
 	kc, err := c.buildClient()
 	if err != nil {
 		return err
@@ -1321,7 +1321,7 @@ func (c *Client) DeleteDeploySecrets(namespace, deploy string, envVars, volKeys 
 	return err
 }
 
-func (c *Client) AddSecretFileOnCronJob(namespace, cronjob, fileName string) error {
+func (c *Client) CreateOrUpdateCronJobSecretFile(namespace, cronjob, fileName string) error {
 	kc, err := c.buildClient()
 	if err != nil {
 		return err

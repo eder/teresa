@@ -73,9 +73,8 @@ type K8sOperations interface {
 	DeletePod(namespace, podName string) error
 	HasIngress(namespace, name string) (bool, error)
 	IngressEnabled() bool
-	AddSecretFileOnDeploy(namespace, deploy, fileName string) error
-	AddSecretFileOnCronJob(namespace, cronjob, fileName string) error
-	// FIXME: rename to `RemoveSecretFileFromDeploy`
+	CreateOrUpdateDeploySecretFile(namespace, deploy, fileName string) error
+	CreateOrUpdateCronJobSecretFile(namespace, cronjob, fileName string) error
 	DeleteDeploySecrets(namespace, deploy string, envVars, volKeys []string) error
 	DeleteCronJobSecrets(namespace, cronjob string, envVars, volKeys []string) error
 }
@@ -435,9 +434,9 @@ func (ops *AppOperations) SetSecretFile(user *database.User, appName, name strin
 	}
 
 	if IsCronJob(app.ProcessType) {
-		err = ops.kops.AddSecretFileOnCronJob(appName, appName, name)
+		err = ops.kops.CreateOrUpdateCronJobSecretFile(appName, appName, name)
 	} else {
-		err = ops.kops.AddSecretFileOnDeploy(appName, appName, name)
+		err = ops.kops.CreateOrUpdateDeploySecretFile(appName, appName, name)
 	}
 
 	if err != nil && !ops.kops.IsNotFound(err) {
